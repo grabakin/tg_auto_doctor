@@ -79,25 +79,49 @@ class BotHandlers:
         @router.message(Command("check"))
         async def cmd_check(message: Message):
             """Команда /check - ручная проверка записей"""
+            user_id = message.from_user.id
+            
+            # Получаем настройки пользователя
+            settings = await self.db.get_user_settings(user_id)
+            
+            if not settings or not settings['patient_number'] or not settings['patient_birthday']:
+                await message.answer(
+                    "⚠️ <b>Настройки не заполнены</b>\n\n"
+                    "Сначала настройте свой профиль командой /setup",
+                    parse_mode="HTML"
+                )
+                return
+            
             await message.answer("🔄 Проверяю доступные записи...")
             
-            # Выполняем ручную проверку
-            stats = await self.tracker.manual_check()
+            # Выполняем ручную проверку с персональными данными
+            stats = await self.tracker.manual_check(
+                settings['patient_number'],
+                settings['patient_birthday']
+            )
             
             # Форматируем и отправляем результаты с ближайшей записью
             result_message = self.formatter.format_check_results(stats)
             await message.answer(result_message, parse_mode="HTML")
             
-            logger.info(f"Пользователь {message.from_user.id} запустил ручную проверку")
+            logger.info(f"Пользователь {user_id} запустил ручную проверку")
         
-        @router.message(F.text)
-        async def handle_text(message: Message):
-            """Обработка текстовых сообщений"""
+        @router.message(Command("help"))
+        async def cmd_help(message: Message):
+            """Команда /help - показать список команд"""
             await message.answer(
-                "Используйте команды:\n"
+                "<b>📋 Основные команды:</b>\n"
                 "/start - Включить уведомления\n"
                 "/stop - Выключить уведомления\n"
+                "/check - Проверить записи\n"
                 "/status - Статус мониторинга\n"
-                "/check - Проверить записи",
+                "/help - Показать команды\n\n"
+                "<b>⚙️ Настройки:</b>\n"
+                "/setup - Первоначальная настройка\n"
+                "/settings - Посмотреть настройки\n"
+                "/setpolicy - Изменить полис\n"
+                "/setbirthday - Изменить дату рождения\n"
+                "/setinterval - Изменить частоту\n"
+                "/setperiod - Изменить период фильтрации",
                 parse_mode="HTML"
             )

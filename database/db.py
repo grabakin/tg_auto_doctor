@@ -24,6 +24,11 @@ class Database:
                     last_name TEXT,
                     is_active BOOLEAN DEFAULT 1,
                     is_notifications_enabled BOOLEAN DEFAULT 1,
+                    patient_number TEXT,
+                    patient_birthday TEXT,
+                    check_interval_minutes INTEGER DEFAULT 5,
+                    filter_period_days INTEGER DEFAULT 7,
+                    last_check_time TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -210,3 +215,83 @@ class Database:
             """, (user_id, doctor_id, date, notification_type, hours)) as cursor:
                 row = await cursor.fetchone()
                 return row[0] > 0 if row else False
+    
+    # Методы для персональных настроек пользователей
+    
+    async def get_user_settings(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Получить настройки пользователя"""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("""
+                SELECT patient_number, patient_birthday, check_interval_minutes, 
+                       filter_period_days, last_check_time
+                FROM users WHERE user_id = ?
+            """, (user_id,)) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+    
+    async def update_patient_info(self, user_id: int, patient_number: str, patient_birthday: str):
+        """Обновить данные полиса пользователя"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                UPDATE users 
+                SET patient_number = ?, patient_birthday = ?
+                WHERE user_id = ?
+            """, (patient_number, patient_birthday, user_id))
+            await db.commit()
+    
+    async def update_check_interval(self, user_id: int, interval_minutes: int):
+        """Обновить интервал проверки (5 минут - 1 день)"""
+        # Валидация: минимум 5 минут, максимум 1440 минут (24 часа)
+        interval_minutes = max(5, min(1440, interval_minutes))
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                UPDATE users 
+                SET check_interval_minutes = ?
+                WHERE user_id = ?
+            """, (interval_minutes, user_id))
+            await db.commit()
+    
+    async def update_filter_period(self, user_id: int, period_days: int):
+        """Обновить период фильтрации записей (1-30 дней)"""
+        # Валидация: минимум 1 день, максимум 30 дней
+        period_days = max(1, min(30, period_days))
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                UPDATE users 
+                SET filter_period_days = ?
+                WHERE user_id = ?
+            """, (period_days, user_id))
+            await db.commit()
+    
+    async def update_last_check_time(self, user_id: int):
+        """Обновить время последней проверки"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                UPDATE users 
+                SET last_check_time = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+            """, (user_id,))
+            await db.commit()
+    
+    async def get_users_to_check(self) -> List[Dict[str, Any]]:
+        """Получить список пользователей, которым пора делать проверку"""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("""
+                SELECT user_id, patient_number, patient_birthday, 
+                       check_interval_minutes, filter_period_days
+                FROM users 
+                WHERE is_active = 1 
+                  AND is_notifications_enabled = 1
+                  AND patient_number IS NOT NULL 
+                  AND patient_birthday IS NOT NULL
+                  AND (
+                    last_check_time IS NULL 
+                    OR datetime(last_check_time, '+' || check_interval_minutes || ' minutes') <= datetime('now')
+                  )
+            """) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]

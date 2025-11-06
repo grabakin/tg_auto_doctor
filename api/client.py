@@ -20,20 +20,23 @@ class ZdravAPIClient:
             'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0"
         }
     
-    async def get_doctors(self, department_id: int) -> Optional[Dict[str, Any]]:
+    async def get_doctors(self, department_id: int, patient_number: str = None, 
+                         patient_birthday: str = None) -> Optional[Dict[str, Any]]:
         """
         Получить список врачей для указанного отделения
         
         Args:
             department_id: ID отделения (52, 53, 54)
+            patient_number: Номер полиса (если None, используется из Config)
+            patient_birthday: Дата рождения (если None, используется из Config)
             
         Returns:
             JSON ответ с данными о врачах или None в случае ошибки
         """
         endpoint = "/api/v2/emias/iemk/doctors"
         params = {
-            'number': Config.PATIENT_NUMBER,
-            'birthday': Config.PATIENT_BIRTHDAY,
+            'number': patient_number or Config.PATIENT_NUMBER,
+            'birthday': patient_birthday or Config.PATIENT_BIRTHDAY,
             'departmentId': department_id,
             'days': Config.API_DAYS
         }
@@ -57,9 +60,14 @@ class ZdravAPIClient:
             logger.error(f"Неожиданная ошибка при запросе для department {department_id}: {e}")
             return None
     
-    async def get_all_departments(self) -> Dict[int, Optional[Dict[str, Any]]]:
+    async def get_all_departments(self, patient_number: str = None, 
+                                 patient_birthday: str = None) -> Dict[int, Optional[Dict[str, Any]]]:
         """
         Получить данные для всех настроенных отделений
+        
+        Args:
+            patient_number: Номер полиса (если None, используется из Config)
+            patient_birthday: Дата рождения (если None, используется из Config)
         
         Returns:
             Словарь {department_id: данные}
@@ -67,5 +75,5 @@ class ZdravAPIClient:
         results = {}
         for dept_id in Config.DEPARTMENT_IDS:
             logger.info(f"Запрашиваем данные для department {dept_id}")
-            results[dept_id] = await self.get_doctors(dept_id)
+            results[dept_id] = await self.get_doctors(dept_id, patient_number, patient_birthday)
         return results

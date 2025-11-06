@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 from datetime import datetime
 import logging
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,11 @@ class AppointmentParser:
             for doctor in doctors:
                 # Парсим данные врача
                 doctor_info = AppointmentParser.parse_doctor_data(doctor, lpu, department_id)
+                
+                # Фильтр: пропускаем исключенные специальности
+                if doctor_info.get('position') in Config.EXCLUDED_POSITIONS:
+                    logger.debug(f"Пропускаем врача с исключенной специальностью: {doctor_info.get('position')}")
+                    continue
                 
                 # Парсим расписание
                 schedule = doctor.get('schedule', [])

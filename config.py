@@ -11,7 +11,7 @@ class Config:
     # Telegram Bot
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     
-    # Данные пациента
+    # Данные пациента (опциональные, могут быть None - настраиваются индивидуально)
     PATIENT_NUMBER = os.getenv("PATIENT_NUMBER")
     PATIENT_BIRTHDAY = os.getenv("PATIENT_BIRTHDAY")
     
@@ -28,6 +28,11 @@ class Config:
     API_BASE_URL = "zdrav.mosreg.ru"
     API_DAYS = 21  # Количество дней для проверки
     
+    # Фильтрация специальностей (исключаем нежелательные позиции)
+    EXCLUDED_POSITIONS = [
+        "Психиатры детские участковые"
+    ]
+    
     # База данных
     DATABASE_PATH = "doctor_bot.db"
     
@@ -39,11 +44,10 @@ class Config:
         """Проверка обязательных параметров"""
         if not cls.BOT_TOKEN:
             raise ValueError("BOT_TOKEN не установлен в .env файле")
-        if not cls.PATIENT_NUMBER:
-            raise ValueError("PATIENT_NUMBER не установлен в .env файле")
-        if not cls.PATIENT_BIRTHDAY:
-            raise ValueError("PATIENT_BIRTHDAY не установлен в .env файле")
         if not cls.WHITELIST_USER_IDS:
             raise ValueError("WHITELIST_USER_IDS не установлен в .env файле")
+        
+        # PATIENT_NUMBER и PATIENT_BIRTHDAY теперь опциональные
+        # Они настраиваются индивидуально для каждого пользователя через команду /setup
         
         return True
