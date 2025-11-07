@@ -101,8 +101,15 @@ class AppointmentParser:
                 # Парсим данные врача
                 doctor_info = AppointmentParser.parse_doctor_data(doctor, lpu, department_id)
                 
-                # Фильтр: пропускаем исключенные специальности
-                if doctor_info.get('position') in Config.EXCLUDED_POSITIONS:
+                # Фильтр 1: Белый список врачей (приоритет выше)
+                # Если список не пустой - показываем ТОЛЬКО врачей из списка
+                if Config.ALLOWED_DOCTORS:
+                    if doctor_info.get('display_name') not in Config.ALLOWED_DOCTORS:
+                        logger.debug(f"Пропускаем врача (не в белом списке): {doctor_info.get('display_name')}")
+                        continue
+                
+                # Фильтр 2: Исключаем нежелательные специальности (если белый список пустой)
+                elif doctor_info.get('position') in Config.EXCLUDED_POSITIONS:
                     logger.debug(f"Пропускаем врача с исключенной специальностью: {doctor_info.get('position')}")
                     continue
                 
